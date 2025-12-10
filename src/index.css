@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ensure widget has high Z-index if not using inline */
+#tour-widget-root {
+	position: relative;
+	z-index: 9999;
+}
