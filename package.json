@@ -1,7 +1,7 @@
 {
-	"name": "tour-widget",
-	"private": true,
-	"version": "0.0.0",
+	"name": "onboardx",
+	"private": false,
+	"version": "0.0.2",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
