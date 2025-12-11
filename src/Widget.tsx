@@ -44,6 +44,7 @@ export const Widget: React.FC<WidgetProps> = ({ tours, onStart, onStepComplete, 
     const [isOpen, setIsOpen] = useState(true);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(true);
+    const [analyticsId, setAnalyticsId] = useState<string | null>(null);
 
     // Default steps if none provided
     const steps = tours?.steps || [
@@ -69,7 +70,22 @@ export const Widget: React.FC<WidgetProps> = ({ tours, onStart, onStepComplete, 
         const userRaw = localStorage.getItem('user');
         const user = userRaw ? JSON.parse(userRaw) : null;
         const tourId = tours?.id || 'demo_tour';
-        onStart?.(tourId, user?.id);
+        const controller = new AbortController();
+        const start = async () => {
+            try {
+                const res = await fetch('/api/analytics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'start', tourId, userId: user?.id }),
+                    signal: controller.signal,
+                });
+                const data = await res.json();
+                if (data?.analyticsId) setAnalyticsId(String(data.analyticsId));
+            } catch {}
+            onStart?.(tourId, user?.id);
+        };
+        start();
+        return () => controller.abort();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -81,6 +97,15 @@ export const Widget: React.FC<WidgetProps> = ({ tours, onStart, onStepComplete, 
     const handleNext = () => {
         if (currentStepIndex < steps.length - 1) {
             setCurrentStepIndex(currentStepIndex + 1);
+            if (analyticsId) {
+                const controller = new AbortController();
+                fetch('/api/analytics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'step', analyticsId, stepId: currentStep.id }),
+                    signal: controller.signal,
+                }).catch(() => {});
+            }
             onStepComplete?.(currentStep.id);
         } else {
             handleComplete();
@@ -96,12 +121,30 @@ export const Widget: React.FC<WidgetProps> = ({ tours, onStart, onStepComplete, 
     const handleSkip = () => {
         setIsVisible(false);
         localStorage.removeItem('tour-step');
+        if (analyticsId) {
+            const controller = new AbortController();
+            fetch('/api/analytics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'abandon', analyticsId }),
+                signal: controller.signal,
+            }).catch(() => {});
+        }
         onAbandon?.();
     };
 
     const handleComplete = () => {
         setIsVisible(false);
         localStorage.removeItem('tour-step');
+        if (analyticsId) {
+            const controller = new AbortController();
+            fetch('/api/analytics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'complete', analyticsId }),
+                signal: controller.signal,
+            }).catch(() => {});
+        }
         onCompleteCb?.();
     };
 
